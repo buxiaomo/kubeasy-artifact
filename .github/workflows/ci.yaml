@@ -19,7 +19,7 @@ jobs:
           mkdir -p scripts
           pushd scripts
             wget https://raw.githubusercontent.com/buxiaomo/kubeasy/main/scripts/nexus.py
-            wget https://raw.githubusercontent.com/buxiaomo/kubeasy/main/scripts/version.py
+            cp ../version.py ./version.py
             chmod +x *.py
           popd
           docker run -d --name artifact -p 8082:8081 -v $(pwd)/data:/app/data docker.io/buxiaomo/kubeasy-artifact:1.0
