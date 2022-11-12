@@ -1,0 +1,53 @@
+name: Auto Release Pachage
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup environment
+        run: |
+          export GIT_TAG=${{ github.ref_name }}
+          pip3 install requests
+          mkdir -p scripts
+          pushd scripts
+            wget https://raw.githubusercontent.com/buxiaomo/kubeasy/main/scripts/nexus.py
+            wget https://raw.githubusercontent.com/buxiaomo/kubeasy/main/scripts/version.py
+            chmod +x *.py
+          popd
+          docker run -d --name artifact -p 8082:8081 -v $(pwd)/data:/app/data docker.io/buxiaomo/kubeasy-artifact:1.0
+          
+          ./scripts/nexus.py download --quiet --kubernetes ${GIT_TAG:1}
+          ./scripts/nexus.py upload --kubernetes ${GIT_TAG:1} --url http://127.0.0.1:8082 --repository kubeasy
+
+          pushd data/
+            tar -zvcf /tmp/kubeasy-artifact.tar.gz *
+          popd
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: /tmp/kubeasy-artifact.tar.gz
+          asset_name: kubeasy-${{ github.ref_name }}.tar.gz
+          asset_content_type: application/gzip
